@@ -25,12 +25,14 @@ async def create_user(tg_id: int, group_name: str, group_id: int) -> bool:
                 return False
 
 
-async def get_user_group(tg_id: int) -> str | None:
+async def get_user_group(tg_id: int) -> dict[str, int | str] | None:
     async with async_session() as session:
         async with session.begin():
-            result = await session.execute(select(User.group_name).where(User.tg_id == tg_id))
-            user_group = result.scalar()
-            return user_group
+            result = await session.execute(select(User.group_id, User.group_name).where(User.tg_id == tg_id))
+            user_group = result.first()
+            if user_group:
+                return {'group_id': user_group[0], 'group_name': user_group[1]}
+            return None
 
 
 async def update_user_group(tg_id: int, group_name: str, group_id: int) -> bool:
