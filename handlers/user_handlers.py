@@ -1,15 +1,17 @@
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.state import default_state
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from models.methods import get_user_group, update_user_group
 from states.user_states import FSMSetGroup
-from keyboards.user_keyboard import create_group_keyboard, create_timetable_keyboard
+from keyboards.user_keyboard import create_group_keyboard, create_timetable_keyboard, create_week_keyboard
 from lexicon.user_lexicon import LEXICON_USER
 from lexicon.user_lexicon import LEXICON_KEYBOARDS_USER
-from api.timetable_api import search_group_timetable
+from api.timetable_api import search_group_timetable, get_today_timetable, get_tomorrow_timetable, get_week_timetable
+from services.services import format_timetable
 
 router: Router = Router()
 
@@ -66,7 +68,13 @@ async def process_today_command(message: Message):
     if group is not None:
         group_id = group['group_id']
         group_name = group['group_name']
-        await message.answer(text=LEXICON_USER['/today'], reply_markup=keyboard)
+        timetable = await get_today_timetable(group_id)
+        if timetable is not None:
+            timetable_message = format_timetable(
+                timetable, group_name, 'сегодня')
+            await message.answer(text=timetable_message, reply_markup=keyboard)
+        else:
+            await message.answer(text=LEXICON_USER['no_timetable_error'], reply_markup=keyboard)
     else:
         await message.answer(text=LEXICON_USER['no_group_error'], reply_markup=keyboard)
 
@@ -79,7 +87,13 @@ async def process_tomorrow_command(message: Message):
     if group is not None:
         group_id = group['group_id']
         group_name = group['group_name']
-        await message.answer(text=LEXICON_USER['/tomorrow'], reply_markup=keyboard)
+        timetable = await get_tomorrow_timetable(group_id)
+        if timetable is not None:
+            timetable_message = format_timetable(
+                timetable, group_name, 'завтра')
+            await message.answer(text=timetable_message, reply_markup=keyboard)
+        else:
+            await message.answer(text=LEXICON_USER['no_timetable_error'], reply_markup=keyboard)
     else:
         await message.answer(text=LEXICON_USER['no_group_error'], reply_markup=keyboard)
 
@@ -88,13 +102,46 @@ async def process_tomorrow_command(message: Message):
 @router.message(F.text == LEXICON_KEYBOARDS_USER['timetable'])
 async def process_timetable_command(message: Message):
     group: dict[str, int | str] | None = await get_user_group(message.from_user.id)
-    keyboard = await create_timetable_keyboard()
+    keyboard = await create_week_keyboard()
+    if group is not None:
+        group_name = group['group_name']
+        await message.answer(text=LEXICON_USER['/timetable'].format(group=group_name), reply_markup=keyboard)
+    else:
+        await message.answer(text=LEXICON_USER['no_group_error'], reply_markup=keyboard)
+
+
+@router.callback_query()
+async def process_callback_query(callback: CallbackQuery):
+    group: dict[str, int | str] | None = await get_user_group(callback.from_user.id)
     if group is not None:
         group_id = group['group_id']
         group_name = group['group_name']
-        await message.answer(text=LEXICON_USER['/timetable'], reply_markup=keyboard)
+        weekdays_dict = dict(
+            zip(['Mn', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'], ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']))
+        weekday_name, week_type = callback.data.split('_')
+
+        data = []
+        timetable = await get_week_timetable(group_id)
+        if timetable is not None:
+            for lesson in timetable:
+                if lesson['weekday_name'] == weekdays_dict[weekday_name]:
+                    if lesson['odd_week'] and week_type == 'U':
+                        data.append(lesson)
+                    elif lesson['even_week'] and week_type == 'L':
+                        data.append(lesson)
+            timetable_message = format_timetable(
+                data, group_name, callback.data)
+            try:
+                await callback.message.edit_text(
+                    text=timetable_message,
+                    reply_markup=callback.message.reply_markup
+                )
+            except TelegramBadRequest:
+                await callback.answer()
+        else:
+            await callback.answer(text=LEXICON_USER['no_timetable_error'])
     else:
-        await message.answer(text=LEXICON_USER['no_group_error'], reply_markup=keyboard)
+        await callback.answer(text=LEXICON_USER['no_group_error'])
 
 
 @router.message(Command(commands=['help']))
