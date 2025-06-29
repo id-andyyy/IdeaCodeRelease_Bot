@@ -89,4 +89,4 @@ To work correctly, you need to create a `.env` file and fill it in according to 
 
 I would appreciate it if you give a star&nbsp;&#11088;. If you find a bug or have suggestions for improvement, use the [Issues](https://github.com/id-andyyy/IdeaCodeRelease_Bot/issues) section.
 
-Читать на [русском&nbsp;&#127479;&#127482;](README-ru.md)
+Читать на [русском&nbsp;&#127479;&#127482;](README.md)
