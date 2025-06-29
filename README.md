@@ -87,4 +87,4 @@ python bot.py
 
 Буду признателен, если вы поставите звезду&nbsp;&#11088;. Если вы нашли баг или у вас есть предложения по улучшению, используйте раздел [Issues](https://github.com/id-andyyy/IdeaCodeRelease_Bot/issues).
 
-Read in [English&nbsp;&#127468;&#127463;](README.md)
+Read in [English&nbsp;&#127468;&#127463;](README-en.md)
